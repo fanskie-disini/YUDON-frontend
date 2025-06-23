@@ -1,13 +1,15 @@
 {
     "builds": [{
         "src": "package.json",
-        "use": "@vercel/static-build",
-        "env": {
-            "ENABLE_FILE_SYSTEM_API": "1"
-        }
+        "use": "@vercel/static-build"
     }],
     "routes": [{
         "src": "/(.*)",
         "dest": "/index.html"
-    }]
+    }],
+    "env": {
+        "ENABLE_FILE_SYSTEM_API": "1",
+        "REACT_APP_API_URL": "https://yudon-backend-production.up.railway.app"
+    }
 }
+  
