@@ -9,6 +9,7 @@ import {
   AlertCircle,
   Music,
 } from "lucide-react";
+import config from "./config";
 
 const YouTubeDownloader = () => {
   const [activeTab, setActiveTab] = useState("single");
@@ -22,9 +23,6 @@ const YouTubeDownloader = () => {
   const [downloadUrl, setDownloadUrl] = useState(null);
   const [filename, setFilename] = useState("");
 
-  // API Base URL - production ready
-  const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:3001";
-
   // Reset quality when format changes
   useEffect(() => {
     if (format === "mp3" || format === "m4a") {
@@ -36,7 +34,7 @@ const YouTubeDownloader = () => {
 
   const getVideoInfo = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/info`, {
+      const response = await fetch(`${config.API_URL}/api/info`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -67,8 +65,8 @@ const YouTubeDownloader = () => {
     try {
       const endpoint =
         activeTab === "single"
-          ? `${API_BASE_URL}/api/download`
-          : `${API_BASE_URL}/api/download-playlist`;
+          ? `${config.API_URL}/api/download`
+          : `${config.API_URL}/api/download-playlist`;
 
       const response = await fetch(endpoint, {
         method: "POST",
