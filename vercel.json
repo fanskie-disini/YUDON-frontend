@@ -1,15 +1,17 @@
 {
+    "version": 2,
     "builds": [{
         "src": "package.json",
         "use": "@vercel/static-build"
     }],
-    "routes": [{
-        "src": "/(.*)",
-        "dest": "/index.html"
-    }],
+    "buildCommand": "npm run build",
+    "outputDirectory": "build",
     "env": {
-        "ENABLE_FILE_SYSTEM_API": "1",
         "REACT_APP_API_URL": "https://yudon-backend-production.up.railway.app"
-    }
+    },
+    "rewrites": [{
+        "source": "/(.*)",
+        "destination": "/index.html"
+    }]
 }
   
