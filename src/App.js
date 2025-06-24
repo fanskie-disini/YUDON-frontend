@@ -8,6 +8,7 @@ import {
   CheckCircle,
   AlertCircle,
   Music,
+  ExclamationTriangle,
 } from "lucide-react";
 import config from "./config";
 
@@ -22,6 +23,98 @@ const YouTubeDownloader = () => {
   const [videoInfo, setVideoInfo] = useState(null);
   const [downloadUrl, setDownloadUrl] = useState(null);
   const [filename, setFilename] = useState("");
+  const [urlValidation, setUrlValidation] = useState({
+    isValid: true,
+    message: "",
+  });
+
+  // Helper function to check if URL is a playlist
+  const isPlaylistURL = (url) => {
+    try {
+      const urlObj = new URL(url);
+      return (
+        urlObj.searchParams.has("list") &&
+        (urlObj.pathname.includes("playlist") ||
+          urlObj.searchParams.get("list"))
+      );
+    } catch (error) {
+      return false;
+    }
+  };
+
+  // Helper function to check if URL is a single video
+  const isSingleVideoURL = (url) => {
+    try {
+      const urlObj = new URL(url);
+
+      // YouTube video patterns
+      if (urlObj.hostname.includes("youtube.com")) {
+        // Check if it has video ID but no playlist, or playlist with specific video
+        const hasVideoId = urlObj.searchParams.get("v");
+        const hasPlaylist = urlObj.searchParams.has("list");
+
+        // If it has both video and playlist, it's a single video from playlist
+        // If it only has video, it's a single video
+        // If it only has playlist, it's a playlist
+        return (
+          hasVideoId && (!hasPlaylist || urlObj.pathname.includes("watch"))
+        );
+      }
+
+      // youtu.be format
+      if (urlObj.hostname.includes("youtu.be")) {
+        return !urlObj.searchParams.has("list");
+      }
+
+      return false;
+    } catch (error) {
+      return false;
+    }
+  };
+
+  // Validate URL based on active tab
+  const validateURL = (inputUrl) => {
+    if (!inputUrl.trim()) {
+      setUrlValidation({ isValid: true, message: "" });
+      return;
+    }
+
+    // Check if it's a valid YouTube URL
+    if (!inputUrl.includes("youtube.com") && !inputUrl.includes("youtu.be")) {
+      setUrlValidation({
+        isValid: false,
+        message: "URL harus dari YouTube",
+      });
+      return;
+    }
+
+    if (activeTab === "single") {
+      if (isPlaylistURL(inputUrl) && !isSingleVideoURL(inputUrl)) {
+        setUrlValidation({
+          isValid: false,
+          message:
+            "URL playlist tidak bisa digunakan di tab Single Video. Pindah ke tab Playlist atau gunakan URL video tunggal.",
+        });
+        return;
+      }
+    } else if (activeTab === "playlist") {
+      if (!isPlaylistURL(inputUrl)) {
+        setUrlValidation({
+          isValid: false,
+          message:
+            "URL video tunggal tidak bisa digunakan di tab Playlist. Pindah ke tab Single Video atau gunakan URL playlist.",
+        });
+        return;
+      }
+    }
+
+    setUrlValidation({ isValid: true, message: "" });
+  };
+
+  // Reset validation when tab changes
+  useEffect(() => {
+    validateURL(url);
+  }, [activeTab]);
 
   // Reset quality when format changes
   useEffect(() => {
@@ -32,7 +125,16 @@ const YouTubeDownloader = () => {
     }
   }, [format]);
 
+  const handleUrlChange = (e) => {
+    const newUrl = e.target.value;
+    setUrl(newUrl);
+    validateURL(newUrl);
+    setVideoInfo(null); // Reset video info when URL changes
+  };
+
   const getVideoInfo = async () => {
+    if (!url.trim() || !urlValidation.isValid) return;
+
     try {
       const response = await fetch(`${config.API_URL}/api/info`, {
         method: "POST",
@@ -52,7 +154,7 @@ const YouTubeDownloader = () => {
   };
 
   const handleDownload = async () => {
-    if (!url.trim()) {
+    if (!url.trim() || !urlValidation.isValid) {
       setDownloadStatus("error");
       return;
     }
@@ -134,6 +236,19 @@ const YouTubeDownloader = () => {
     setVideoInfo(null);
     setDownloadUrl(null);
     setFilename("");
+    setUrlValidation({ isValid: true, message: "" });
+  };
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    // Reset form when switching tabs
+    setUrl("");
+    setVideoInfo(null);
+    setDownloadStatus("");
+    setProgress(0);
+    setDownloadUrl(null);
+    setFilename("");
+    setUrlValidation({ isValid: true, message: "" });
   };
 
   const getStatusIcon = () => {
@@ -197,6 +312,9 @@ const YouTubeDownloader = () => {
 
   const isAudioFormat = format === "mp3" || format === "m4a";
 
+  // Check if download button should be disabled
+  const isDownloadDisabled = isLoading || !url.trim() || !urlValidation.isValid;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-red-50">
       <div className="container mx-auto px-4 py-8">
@@ -220,7 +338,7 @@ const YouTubeDownloader = () => {
           {/* Tab Navigation */}
           <div className="flex border-b border-gray-200">
             <button
-              onClick={() => setActiveTab("single")}
+              onClick={() => handleTabChange("single")}
               className={`flex-1 py-4 px-6 text-center font-semibold transition-all duration-300 ${
                 activeTab === "single"
                   ? "bg-red-600 text-white border-b-4 border-red-700"
@@ -231,7 +349,7 @@ const YouTubeDownloader = () => {
               Single Video
             </button>
             <button
-              onClick={() => setActiveTab("playlist")}
+              onClick={() => handleTabChange("playlist")}
               className={`flex-1 py-4 px-6 text-center font-semibold transition-all duration-300 ${
                 activeTab === "playlist"
                   ? "bg-red-600 text-white border-b-4 border-red-700"
@@ -256,21 +374,35 @@ const YouTubeDownloader = () => {
                 <input
                   type="url"
                   value={url}
-                  onChange={(e) => setUrl(e.target.value)}
+                  onChange={handleUrlChange}
                   onBlur={getVideoInfo}
                   placeholder={
                     activeTab === "single"
                       ? "https://www.youtube.com/watch?v=..."
                       : "https://www.youtube.com/playlist?list=..."
                   }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all duration-300"
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all duration-300 ${
+                    !urlValidation.isValid
+                      ? "border-red-300 bg-red-50"
+                      : "border-gray-300"
+                  }`}
                 />
                 <PlayCircle className="absolute right-3 top-3 w-6 h-6 text-gray-400" />
               </div>
+
+              {/* URL Validation Message */}
+              {!urlValidation.isValid && (
+                <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start">
+                  <ExclamationTriangle className="w-5 h-5 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm text-red-700">
+                    {urlValidation.message}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Video Info Display */}
-            {videoInfo && (
+            {videoInfo && urlValidation.isValid && (
               <div className="mb-6 p-4 bg-gray-50 rounded-lg">
                 <div className="flex items-start space-x-4">
                   {videoInfo.thumbnail && (
@@ -352,9 +484,9 @@ const YouTubeDownloader = () => {
             {/* Download Button */}
             <button
               onClick={handleDownload}
-              disabled={isLoading || !url.trim()}
+              disabled={isDownloadDisabled}
               className={`w-full py-4 px-6 rounded-lg font-semibold text-white transition-all duration-300 transform hover:scale-105 ${
-                isLoading || !url.trim()
+                isDownloadDisabled
                   ? "bg-gray-400 cursor-not-allowed"
                   : "bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 shadow-lg hover:shadow-xl"
               }`}
@@ -475,10 +607,7 @@ const YouTubeDownloader = () => {
 
         {/* Footer */}
         <div className="text-center mt-8 text-gray-500">
-          <p>
-            © 2025 YUDON. Gunakan dengan bijak dan hormati hak
-            cipta.
-          </p>
+          <p>© 2025 YUDON. Gunakan dengan bijak dan hormati hak cipta.</p>
         </div>
       </div>
     </div>
