@@ -8,7 +8,7 @@ import {
   CheckCircle,
   AlertCircle,
   Music,
-  ExclamationTriangle,
+  AlertTriangle,
 } from "lucide-react";
 import config from "./config";
 
@@ -393,7 +393,7 @@ const YouTubeDownloader = () => {
               {/* URL Validation Message */}
               {!urlValidation.isValid && (
                 <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start">
-                  <ExclamationTriangle className="w-5 h-5 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
+                  <AlertTriangle className="w-5 h-5 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
                   <span className="text-sm text-red-700">
                     {urlValidation.message}
                   </span>
