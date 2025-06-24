@@ -23,6 +23,7 @@ const YouTubeDownloader = () => {
   const [videoInfo, setVideoInfo] = useState(null);
   const [downloadUrl, setDownloadUrl] = useState(null);
   const [filename, setFilename] = useState("");
+  const [statusMessage, setStatusMessage] = useState("");
   const [urlValidation, setUrlValidation] = useState({
     isValid: true,
     message: "",
@@ -156,6 +157,7 @@ const YouTubeDownloader = () => {
   const handleDownload = async () => {
     if (!url.trim() || !urlValidation.isValid) {
       setDownloadStatus("error");
+      setStatusMessage("URL tidak valid");
       return;
     }
 
@@ -163,6 +165,7 @@ const YouTubeDownloader = () => {
     setDownloadStatus("processing");
     setProgress(0);
     setDownloadUrl(null);
+    setStatusMessage("Memulai download...");
 
     try {
       const endpoint =
@@ -170,23 +173,24 @@ const YouTubeDownloader = () => {
           ? `${config.API_URL}/api/download`
           : `${config.API_URL}/api/download-playlist`;
 
+      // Make POST request to initiate download
       const response = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          url,
-          quality,
-          format,
-          type: activeTab,
+          url: url,
+          quality: quality,
+          format: format,
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Download failed");
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
+      // Handle SSE response
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
 
@@ -200,10 +204,15 @@ const YouTubeDownloader = () => {
         for (const line of lines) {
           if (line.startsWith("data: ")) {
             try {
-              const data = JSON.parse(line.substring(6));
+              const data = JSON.parse(line.slice(6));
+              console.log("Received data:", data);
 
-              if (data.progress) {
+              if (data.progress !== undefined) {
                 setProgress(data.progress);
+              }
+
+              if (data.message) {
+                setStatusMessage(data.message);
               }
 
               if (data.status === "complete") {
@@ -211,13 +220,23 @@ const YouTubeDownloader = () => {
                 setDownloadUrl(data.downloadUrl);
                 setFilename(data.filename);
                 setIsLoading(false);
+                setStatusMessage(
+                  activeTab === "single"
+                    ? "Video berhasil diunduh!"
+                    : "Playlist berhasil diunduh!"
+                );
+                break;
               } else if (data.status === "error") {
                 setDownloadStatus("error");
                 setIsLoading(false);
+                setStatusMessage(
+                  data.message || "Terjadi kesalahan saat download"
+                );
                 console.error("Download error:", data.message);
+                break;
               }
-            } catch (e) {
-              console.error("Error parsing SSE data:", e);
+            } catch (parseError) {
+              console.error("Error parsing SSE data:", parseError);
             }
           }
         }
@@ -226,6 +245,7 @@ const YouTubeDownloader = () => {
       console.error("Download error:", error);
       setDownloadStatus("error");
       setIsLoading(false);
+      setStatusMessage("Terjadi kesalahan saat download: " + error.message);
     }
   };
 
@@ -236,6 +256,7 @@ const YouTubeDownloader = () => {
     setVideoInfo(null);
     setDownloadUrl(null);
     setFilename("");
+    setStatusMessage("");
     setUrlValidation({ isValid: true, message: "" });
   };
 
@@ -248,6 +269,7 @@ const YouTubeDownloader = () => {
     setProgress(0);
     setDownloadUrl(null);
     setFilename("");
+    setStatusMessage("");
     setUrlValidation({ isValid: true, message: "" });
   };
 
@@ -261,23 +283,6 @@ const YouTubeDownloader = () => {
         return <AlertCircle className="w-5 h-5 text-red-500" />;
       default:
         return null;
-    }
-  };
-
-  const getStatusMessage = () => {
-    switch (downloadStatus) {
-      case "processing":
-        return activeTab === "single"
-          ? "Mengunduh video..."
-          : "Mengunduh playlist...";
-      case "complete":
-        return activeTab === "single"
-          ? "Video berhasil diunduh!"
-          : "Playlist berhasil diunduh!";
-      case "error":
-        return "URL tidak valid atau terjadi kesalahan";
-      default:
-        return "";
     }
   };
 
@@ -543,7 +548,7 @@ const YouTubeDownloader = () => {
                         : "text-blue-700"
                   }`}
                 >
-                  {getStatusMessage()}
+                  {statusMessage}
                 </span>
                 {downloadStatus === "complete" && downloadUrl && (
                   <div className="ml-auto flex space-x-2">
